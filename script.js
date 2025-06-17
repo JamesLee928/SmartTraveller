@@ -208,7 +208,7 @@ async function searchFoods() {
         };
 
         const params = new URLSearchParams({
-            "$select": "RestaurantID,RestaurantName,Address,Phone,Description,OpenTime,Picture,UpdateTime",
+            "$select": "RestaurantID,RestaurantName,Address,Phone,Description,OpenTime,Picture,Position,UpdateTime",
             "$top": "100"
         });
 
@@ -409,7 +409,7 @@ function setEndPoint(location) {
 function updateSelectedPointsUI() {
     const startElem = document.getElementById('selectedStart');
     const endElem = document.getElementById('selectedEnd');
-    const routeBtn = document.getElementById('btnShowRoute');
+    const routeBtn = document.getElementById('findStopsBtn');
 
     startElem.textContent = startPoint ? (startPoint.ScenicSpotName || startPoint.RestaurantName) : '尚未設定';
     endElem.textContent = endPoint ? (endPoint.ScenicSpotName || endPoint.RestaurantName) : '尚未設定';
@@ -558,10 +558,15 @@ function displayFoods(foods) {
     });
 }
 // 查詢附近公車站牌（預設範圍 300 公尺）
-async function findNearbyBusStops(lat, lon, range = 5000) {
-    const url = `https://tdx.transportdata.tw/api/basic/v2/Bus/Stop/NearBy?$spatialFilter=nearby(${lat},${lon},${range})&$format=JSON`;
+async function findNearbyBusStops(lat, lon, range = 500) {
+    const token = await getTdxToken(); // ✅ 加入 token
+    const url = `https://tdx.transportdata.tw/api/advanced/v2/Bus/Stop/NearBy?%24top=30&%24spatialFilter=nearby(${lat},${lon},${range})&%24format=JSON`;
     try {
-        const res = await fetch(url);
+        const res = await fetch(url, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
         if (!res.ok) throw new Error('無法取得資料');
         return await res.json();
     } catch (err) {
@@ -569,6 +574,7 @@ async function findNearbyBusStops(lat, lon, range = 5000) {
         return [];
     }
 }
+
 
 // 顯示站牌資訊到網頁
 async function showNearbyStopsForStartAndEnd() {
@@ -863,7 +869,7 @@ async function searchHotels() {
         };
 
         const params = new URLSearchParams({
-            "$select": "HotelID,HotelName,Address,Phone,Grade,Description,Picture,UpdateTime",
+            "$select": "HotelID,HotelName,Address,Phone,Grade,Description,Picture,Position,UpdateTime",
             "$top": "100"
         });
 
@@ -940,9 +946,11 @@ function displayHotels(hotels) {
             const pictureUrl = hotel.Picture && hotel.Picture.PictureUrl1 
                 ? hotel.Picture.PictureUrl1 
                 : 'https://via.placeholder.com/300x200?text=No+Image';
+
+            const escapedHotel = JSON.stringify(hotel).replace(/"/g, '&quot;');
             
             html += `
-                <div class="spot-card" onclick="showHotelDetail(${JSON.stringify(hotel).replace(/"/g, '&quot;')})">
+                <div class="spot-card">
                     <div class="spot-image">
                         <img src="${pictureUrl}" alt="${hotel.HotelName || '旅宿照片'}">
                     </div>
@@ -951,6 +959,10 @@ function displayHotels(hotels) {
                         ${hotel.Grade ? `<p>⭐ ${hotel.Grade}</p>` : ''}
                         ${hotel.Address ? `<p>📍 ${hotel.Address}</p>` : ''}
                         ${hotel.Description ? `<p class="description">${hotel.Description}</p>` : ''}
+                        <div class="select-buttons" style="margin-top: 8px;">
+                            <button class="btn-set-start" data-hotel='${escapedHotel}'>設為起點</button>
+                            <button class="btn-set-end" data-hotel='${escapedHotel}'>設為終點</button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -958,6 +970,31 @@ function displayHotels(hotels) {
     }
 
     hotelsContainer.innerHTML = html;
+
+    // 加入按鈕事件綁定
+    document.querySelectorAll('.btn-set-start').forEach(btn => {
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const hotel = JSON.parse(e.currentTarget.dataset.hotel);
+            setStartPoint(hotel);
+        });
+    });
+
+    document.querySelectorAll('.btn-set-end').forEach(btn => {
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const hotel = JSON.parse(e.currentTarget.dataset.hotel);
+            setEndPoint(hotel);
+        });
+    });
+
+    // 點擊卡片開詳細資訊
+    document.querySelectorAll('.spot-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const hotel = JSON.parse(card.querySelector('.btn-set-start').dataset.hotel);
+            showHotelDetail(hotel);
+        });
+    });
 }
 
 // 顯示旅宿詳細資訊
