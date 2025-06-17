@@ -131,7 +131,7 @@ async function searchSpots() {
         };
 
         const params = new URLSearchParams({
-            "$select": "ScenicSpotID,ScenicSpotName,Address,Phone,Description,OpenTime,Class1,Class2,Class3,Picture,UpdateTime",
+            "$select": "ScenicSpotID,ScenicSpotName,Address,Phone,Description,OpenTime,Class1,Class2,Class3,Picture,Position,UpdateTime",
             "$top": "100"
         });
 
@@ -359,23 +359,46 @@ function clearFoodFilter() {
     displayFoods(allFoods);
 }
 
+// 全局變數存起點與終點
+let startPoint = null;
+let endPoint = null;
+
+function setStartPoint(location) {
+    startPoint = location;
+    updateSelectedPointsUI();
+}
+
+function setEndPoint(location) {
+    endPoint = location;
+    updateSelectedPointsUI();
+}
+
+function updateSelectedPointsUI() {
+    const startElem = document.getElementById('selectedStart');
+    const endElem = document.getElementById('selectedEnd');
+    const routeBtn = document.getElementById('btnShowRoute');
+
+    startElem.textContent = startPoint ? (startPoint.ScenicSpotName || startPoint.RestaurantName) : '尚未設定';
+    endElem.textContent = endPoint ? (endPoint.ScenicSpotName || endPoint.RestaurantName) : '尚未設定';
+
+    routeBtn.disabled = !(startPoint && endPoint);
+}
+
 function displaySpots(spots) {
     const spotsContainer = document.getElementById('spotsContainer');
     spotsContainer.innerHTML = '';
-    
+
     if (spots.length === 0) {
         spotsContainer.innerHTML = '<p>找不到景點資料</p>';
         return;
     }
 
-    spots.forEach((spot, index) => {
+    spots.forEach((spot) => {
         const spotCard = document.createElement('div');
         spotCard.className = 'spot-card';
-        
-        // 處理不同城市的地址欄位
+
         let address = spot.Address || spot.ScenicSpotAddress || spot.Location || spot.AddressDetail || '無地址資料';
-        
-        // 添加圖片
+
         let imageHtml = '';
         if (spot.Picture && spot.Picture.PictureUrl1) {
             imageHtml = `
@@ -392,14 +415,12 @@ function displaySpots(spots) {
             `;
         }
 
-        // 構建簡化資訊（卡片顯示）
         let detailsHtml = `
             <h3>${spot.ScenicSpotName}</h3>
             <p><strong>地址：</strong>${address}</p>
             <p><strong>電話：</strong>${spot.Phone || '無資料'}</p>
         `;
 
-        // 添加描述（限制顯示）
         if (spot.Description) {
             detailsHtml += `<p class="description"><strong>描述：</strong>${spot.Description}</p>`;
         }
@@ -408,14 +429,28 @@ function displaySpots(spots) {
             ${imageHtml}
             <div class="spot-info">
                 ${detailsHtml}
+                <div class="select-buttons" style="margin-top:8px;">
+                    <button class="btn-set-start">設為起點</button>
+                    <button class="btn-set-end">設為終點</button>
+                </div>
             </div>
         `;
-        
-        // 添加點擊事件
+
+        // 設定按鈕事件
+        spotCard.querySelector('.btn-set-start').addEventListener('click', (e) => {
+            e.stopPropagation();
+            setStartPoint(spot);
+        });
+
+        spotCard.querySelector('.btn-set-end').addEventListener('click', (e) => {
+            e.stopPropagation();
+            setEndPoint(spot);
+        });
+
         spotCard.addEventListener('click', () => {
             showSpotDetail(spot);
         });
-        
+
         spotsContainer.appendChild(spotCard);
     });
 }
@@ -423,20 +458,18 @@ function displaySpots(spots) {
 function displayFoods(foods) {
     const foodsContainer = document.getElementById('foodsContainer');
     foodsContainer.innerHTML = '';
-    
+
     if (foods.length === 0) {
         foodsContainer.innerHTML = '<p>找不到美食資料</p>';
         return;
     }
 
-    foods.forEach((food, index) => {
+    foods.forEach((food) => {
         const foodCard = document.createElement('div');
         foodCard.className = 'food-card';
-        
-        // 處理不同城市的地址欄位
+
         let address = food.Address || food.RestaurantAddress || food.Location || food.AddressDetail || '無地址資料';
-        
-        // 添加圖片
+
         let imageHtml = '';
         if (food.Picture && food.Picture.PictureUrl1) {
             imageHtml = `
@@ -453,14 +486,12 @@ function displayFoods(foods) {
             `;
         }
 
-        // 構建簡化資訊（卡片顯示）
         let detailsHtml = `
             <h3>${food.RestaurantName}</h3>
             <p><strong>地址：</strong>${address}</p>
             <p><strong>電話：</strong>${food.Phone || '無資料'}</p>
         `;
 
-        // 添加描述（限制顯示）
         if (food.Description) {
             detailsHtml += `<p class="description"><strong>描述：</strong>${food.Description}</p>`;
         }
@@ -469,17 +500,85 @@ function displayFoods(foods) {
             ${imageHtml}
             <div class="food-info">
                 ${detailsHtml}
+                <div class="select-buttons" style="margin-top:8px;">
+                    <button class="btn-set-start">設為起點</button>
+                    <button class="btn-set-end">設為終點</button>
+                </div>
             </div>
         `;
-        
-        // 添加點擊事件
+
+        foodCard.querySelector('.btn-set-start').addEventListener('click', (e) => {
+            e.stopPropagation();
+            setStartPoint(food);
+        });
+
+        foodCard.querySelector('.btn-set-end').addEventListener('click', (e) => {
+            e.stopPropagation();
+            setEndPoint(food);
+        });
+
         foodCard.addEventListener('click', () => {
             showFoodDetail(food);
         });
-        
+
         foodsContainer.appendChild(foodCard);
     });
 }
+// 查詢附近公車站牌（預設範圍 300 公尺）
+async function findNearbyBusStops(lat, lon, range = 5000) {
+    const url = `https://tdx.transportdata.tw/api/basic/v2/Bus/Stop/NearBy?$spatialFilter=nearby(${lat},${lon},${range})&$format=JSON`;
+    try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('無法取得資料');
+        return await res.json();
+    } catch (err) {
+        console.error(err);
+        return [];
+    }
+}
+
+// 顯示站牌資訊到網頁
+async function showNearbyStopsForStartAndEnd() {
+    const container = document.getElementById('busStopsInfo');
+    container.innerHTML = ''; // 清空
+
+    if (!startPoint || !endPoint || !startPoint.Position || !endPoint.Position) {
+        container.innerHTML = '<p style="color:red;">請先設定起點與終點（需有經緯度）</p>';
+        return;
+    }
+
+    const startLat = startPoint.Position.PositionLat;
+    const startLon = startPoint.Position.PositionLon;
+    const endLat = endPoint.Position.PositionLat;
+    const endLon = endPoint.Position.PositionLon;
+
+    const [startStops, endStops] = await Promise.all([
+        findNearbyBusStops(startLat, startLon),
+        findNearbyBusStops(endLat, endLon)
+    ]);
+
+    const startList = startStops.length
+        ? startStops.map(s => `<li>${s.StopName.Zh_tw}</li>`).join('')
+        : '<li>查無附近站牌</li>';
+
+    const endList = endStops.length
+        ? endStops.map(s => `<li>${s.StopName.Zh_tw}</li>`).join('')
+        : '<li>查無附近站牌</li>';
+
+    container.innerHTML = `
+        <h3>📍 起點附近站牌</h3>
+        <ul>${startList}</ul>
+        <h3>📍 終點附近站牌</h3>
+        <ul>${endList}</ul>
+    `;
+}
+
+// 綁定按鈕事件
+document.getElementById('findStopsBtn').addEventListener('click', showNearbyStopsForStartAndEnd);
+
+
+
+
 
 // 顯示景點詳細資訊
 function showSpotDetail(spot) {

@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>智慧旅遊平台</title>
-    <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="index.css" />
 </head>
 <body>
     <h1>智慧旅遊推薦平台</h1>
+
     <div class="input-section">
         <label for="location">選擇城市：</label>
         <select id="location">
@@ -63,6 +64,24 @@
         </div>
     </div>
 
+    <!-- 新增起點終點選擇區 -->
+    <div id="routeSelection" style="margin: 20px 0; padding: 10px; border: 1px solid #ccc; max-width: 600px;">
+        <h3>行程起點與終點選擇</h3>
+        <p>起點：<span id="selectedStart">尚未設定</span></p>
+        <p>終點：<span id="selectedEnd">尚未設定</span></p>
+        <!-- 確定行程按鈕 -->
+    <button id="confirmRouteBtn">確定行程</button>
+
+    <!-- 顯示公車站牌 -->
+    <h4>起點附近公車站牌</h4>
+    <div id="startBusStopsContainer"></div>
+
+    <h4>終點附近公車站牌</h4>
+    <div id="endBusStopsContainer"></div>
+    </div>
+   <div id="busStopsInfo" style="margin-top: 20px;"></div>
+    <button id="findStopsBtn">查詢附近站牌</button>
+
     <!-- 景點顯示區域 -->
     <div class="spots-grid" id="spotsContainer"></div>
 
@@ -80,4 +99,3 @@
     <script src="script.js"></script>
 </body>
 </html>
-
