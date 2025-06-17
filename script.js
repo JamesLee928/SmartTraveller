@@ -1,80 +1,203 @@
+// TDX API 設定
+const TDX_API_URL = "https://tdx.transportdata.tw/api/basic/v2";
+const TDX_APP_ID = "sssun-09d597db-5ec8-446e";
+const TDX_APP_KEY = "8ffe4bd6-dc2e-40e1-8f9e-2c5d62e13ab1";
+
+// 城市與 API 端點對應
+const CITY_API_ENDPOINTS = {
+    "台北市": "/Tourism/ScenicSpot/Taipei",
+    "新北市": "/Tourism/ScenicSpot/NewTaipei",
+    "桃園市": "/Tourism/ScenicSpot/Taoyuan",
+    "台中市": "/Tourism/ScenicSpot/Taichung",
+    "台南市": "/Tourism/ScenicSpot/Tainan",
+    "高雄市": "/Tourism/ScenicSpot/Kaohsiung",
+    "基隆市": "/Tourism/ScenicSpot/Keelung",
+    "新竹市": "/Tourism/ScenicSpot/Hsinchu",
+    "嘉義市": "/Tourism/ScenicSpot/Chiayi",
+    "宜蘭縣": "/Tourism/ScenicSpot/YilanCounty",
+    "花蓮縣": "/Tourism/ScenicSpot/HualienCounty",
+    "台東縣": "/Tourism/ScenicSpot/TaitungCounty",
+    "澎湖縣": "/Tourism/ScenicSpot/PenghuCounty",
+    "金門縣": "/Tourism/ScenicSpot/KinmenCounty",
+    "連江縣": "/Tourism/ScenicSpot/LienchiangCounty"
+};
+
+// 城市與美食 API 端點對應
+const CITY_FOOD_ENDPOINTS = {
+    "台北市": "/Tourism/Restaurant/Taipei",
+    "新北市": "/Tourism/Restaurant/NewTaipei",
+    "桃園市": "/Tourism/Restaurant/Taoyuan",
+    "台中市": "/Tourism/Restaurant/Taichung",
+    "台南市": "/Tourism/Restaurant/Tainan",
+    "高雄市": "/Tourism/Restaurant/Kaohsiung",
+    "基隆市": "/Tourism/Restaurant/Keelung",
+    "新竹市": "/Tourism/Restaurant/Hsinchu",
+    "嘉義市": "/Tourism/Restaurant/Chiayi",
+    "宜蘭縣": "/Tourism/Restaurant/YilanCounty",
+    "花蓮縣": "/Tourism/Restaurant/HualienCounty",
+    "台東縣": "/Tourism/Restaurant/TaitungCounty",
+    "澎湖縣": "/Tourism/Restaurant/PenghuCounty",
+    "金門縣": "/Tourism/Restaurant/KinmenCounty",
+    "連江縣": "/Tourism/Restaurant/LienchiangCounty"
+};
+
+// 城市列表
+const cities = [
+    "台北市",
+    "新北市",
+    "桃園市",
+    "台中市",
+    "台南市",
+    "高雄市",
+    "基隆市",
+    "新竹市",
+    "嘉義市",
+    "宜蘭縣",
+    "花蓮縣",
+    "台東縣",
+    "澎湖縣",
+    "金門縣",
+    "連江縣"
+];
+
 // 全域變數
 let allSpots = []; // 儲存所有景點資料
 let allFoods = []; // 儲存所有美食資料
 
 // 初始化下拉選單
 function initializeDropdown() {
-    const locationSelect = document.getElementById('location');
-    if (locationSelect) {
-        locationSelect.addEventListener('change', function() {
-            const selectedLocation = this.value;
-            if (selectedLocation) {
-                console.log('選擇的城市:', selectedLocation);
+    const citySelect = document.getElementById('location');
+    if (citySelect) {
+        citySelect.addEventListener('change', function() {
+            const selectedCity = this.value;
+            if (selectedCity) {
+                console.log('選擇的城市:', selectedCity);
             }
         });
     }
 }
 
-// 獲取 TDX Token
-async function getTDXToken() {
+// 獲取 TDX API 的存取令牌
+async function getTdxToken() {
+    const url = "https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token";
+    const headers = {
+        "Content-Type": "application/x-www-form-urlencoded"
+    };
+    const data = new URLSearchParams({
+        "grant_type": "client_credentials",
+        "client_id": TDX_APP_ID,
+        "client_secret": TDX_APP_KEY
+    });
+
     try {
-        const response = await fetch('/api/token');
-        const data = await response.json();
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: data
+        });
         
-        if (response.ok) {
-            return data.access_token;
-        } else {
-            throw new Error('無法獲取 Token');
+        if (!response.ok) {
+            throw new Error('無法獲取 API 認證');
         }
+        
+        const tokenData = await response.json();
+        return tokenData.access_token;
     } catch (error) {
-        console.error('Token 請求錯誤:', error);
+        console.error('獲取 token 時發生錯誤:', error);
         throw error;
     }
 }
 
-// 獲取景點資料
-async function fetchNearbyAttractions(location, token) {
+// 修改 searchSpots 函數
+async function searchSpots() {
+    const city = document.getElementById('location').value;
+    const spotsContainer = document.getElementById('spotsContainer');
+    spotsContainer.innerHTML = '<div class="loading">搜尋中...</div>';
+
     try {
-        const response = await fetch(`/api/spots?city=${encodeURIComponent(location)}`);
-        const spots = await response.json();
+        // 隱藏美食相關區域
+        hideFoodSections();
+
+        const token = await getTdxToken();
+        const endpoint = CITY_API_ENDPOINTS[city];
         
-        if (response.ok) {
-            allSpots = spots; // 儲存所有景點資料
-            displaySpots(spots);
-            setupCategoryFilter(spots);
-            
-            // 隱藏美食相關區域
-            hideFoodSections();
-        } else {
-            console.error('Spots API 錯誤:', spots.error);
-            alert('無法獲取景點資料');
+        if (!endpoint) {
+            throw new Error('不支援的城市');
         }
+
+        const headers = {
+            "Authorization": `Bearer ${token}`,
+            "Accept": "application/json"
+        };
+
+        const params = new URLSearchParams({
+            "$select": "ScenicSpotID,ScenicSpotName,Address,Phone,Description,OpenTime,Class1,Class2,Class3,Picture,UpdateTime",
+            "$top": "100"
+        });
+
+        const response = await fetch(`${TDX_API_URL}${endpoint}?${params}`, {
+            headers: headers
+        });
+
+        if (!response.ok) {
+            throw new Error('無法獲取景點資料');
+        }
+
+        const spots = await response.json();
+        allSpots = spots; // 保存所有景點資料
+        displaySpots(spots);
+        setupCategoryFilter(spots); // 設置類別篩選
     } catch (error) {
-        console.error('Spots 請求錯誤:', error);
-        alert('網路錯誤，請稍後再試');
+        spotsContainer.innerHTML = `<div class="error">錯誤: ${error.message}</div>`;
     }
 }
 
-// 獲取美食資料
-async function fetchFoodRecommendations(location) {
+// 修改 searchFoods 函數
+async function searchFoods() {
+    const city = document.getElementById('location').value;
+    const foodsContainer = document.getElementById('foodsContainer');
+    foodsContainer.innerHTML = '<div class="loading">搜尋中...</div>';
+
     try {
-        const response = await fetch(`/api/foods?city=${encodeURIComponent(location)}`);
-        const foods = await response.json();
+        // 隱藏景點相關區域
+        hideSpotSections();
+
+        const token = await getTdxToken();
+        const endpoint = CITY_FOOD_ENDPOINTS[city];
         
-        if (response.ok) {
-            allFoods = foods; // 儲存所有美食資料
-            displayFoods(foods);
-            setupFoodCategoryFilter(foods);
-            
-            // 隱藏景點相關區域
-            hideSpotSections();
-        } else {
-            console.error('Food API 錯誤:', foods.error);
-            alert('無法獲取美食資料');
+        if (!endpoint) {
+            throw new Error('不支援的城市');
         }
+
+        const headers = {
+            "Authorization": `Bearer ${token}`,
+            "Accept": "application/json"
+        };
+
+        const params = new URLSearchParams({
+            "$select": "RestaurantID,RestaurantName,Address,Phone,Description,OpenTime,Picture,UpdateTime",
+            "$top": "100"
+        });
+
+        // 如果是台北市，添加地址過濾
+        if (city === "台北市") {
+            params.append("$filter", "contains(Address, '台北市')");
+        }
+
+        const response = await fetch(`${TDX_API_URL}${endpoint}?${params}`, {
+            headers: headers
+        });
+
+        if (!response.ok) {
+            throw new Error('無法獲取美食資料');
+        }
+
+        const foods = await response.json();
+        allFoods = foods; // 保存所有美食資料
+        displayFoods(foods);
+        setupFoodCategoryFilter(foods); // 設置美食類別篩選
     } catch (error) {
-        console.error('Food 請求錯誤:', error);
-        alert('網路錯誤，請稍後再試');
+        foodsContainer.innerHTML = `<div class="error">錯誤: ${error.message}</div>`;
     }
 }
 
@@ -120,7 +243,7 @@ function setupFoodCategoryFilter(foods) {
         console.error('找不到美食篩選容器或選擇器');
         return;
     }
-    
+
     // 根據餐廳名稱和描述創建關鍵字分類
     const categories = new Set();
     const keywords = {
@@ -175,7 +298,7 @@ function applyFilter() {
         displaySpots(allSpots);
         return;
     }
-    
+
     // 篩選符合類別的景點
     const filteredSpots = allSpots.filter(spot => {
         return spot.Class1 === selectedCategory || 
@@ -500,8 +623,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             try {
-                const token = await getTDXToken();
-                await fetchNearbyAttractions(location, token);
+                const token = await getTdxToken();
+                await searchSpots(location, token);
             } catch (error) {
                 console.error("Error fetching attractions:", error);
                 alert("無法取得景點資訊，請稍後再試");
@@ -512,13 +635,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // 為美食推薦區域添加點擊事件
     const foodsSection = document.getElementById('foods');
     if (foodsSection) {
-        foodsSection.addEventListener('click', function() {
+        foodsSection.style.cursor = 'pointer';
+        foodsSection.addEventListener('click', async function() {
             const location = document.getElementById('location').value;
             if (!location) {
                 alert('請先選擇城市');
                 return;
             }
-            fetchFoodRecommendations(location);
+            try {
+                await searchFoods();
+            } catch (error) {
+                console.error("Error fetching foods:", error);
+                alert("無法取得美食資訊，請稍後再試");
+            }
         });
     }
 
@@ -547,4 +676,4 @@ document.addEventListener('DOMContentLoaded', () => {
             modal.style.display = 'none';
         }
     });
-}); 
+});
