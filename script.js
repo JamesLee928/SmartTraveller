@@ -577,6 +577,21 @@ async function findNearbyBusStops(lat, lon, range = 500) {
 
 
 // 顯示站牌資訊到網頁
+function getUniqueStopNames(stops) {
+    const seen = new Set();
+    const uniqueStops = [];
+
+    stops.forEach(stop => {
+        const name = stop.StopName.Zh_tw;
+        if (!seen.has(name)) {
+            seen.add(name);
+            uniqueStops.push(name);
+        }
+    });
+
+    return uniqueStops;
+}
+
 async function showNearbyStopsForStartAndEnd() {
     const container = document.getElementById('busStopsInfo');
     container.innerHTML = ''; // 清空
@@ -596,12 +611,15 @@ async function showNearbyStopsForStartAndEnd() {
         findNearbyBusStops(endLat, endLon)
     ]);
 
-    const startList = startStops.length
-        ? startStops.map(s => `<li>${s.StopName.Zh_tw}</li>`).join('')
+    const startStopNames = getUniqueStopNames(startStops);
+    const endStopNames = getUniqueStopNames(endStops);
+
+    const startList = startStopNames.length
+        ? startStopNames.map(name => `<li>${name}</li>`).join('')
         : '<li>查無附近站牌</li>';
 
-    const endList = endStops.length
-        ? endStops.map(s => `<li>${s.StopName.Zh_tw}</li>`).join('')
+    const endList = endStopNames.length
+        ? endStopNames.map(name => `<li>${name}</li>`).join('')
         : '<li>查無附近站牌</li>';
 
     container.innerHTML = `
@@ -611,6 +629,7 @@ async function showNearbyStopsForStartAndEnd() {
         <ul>${endList}</ul>
     `;
 }
+
 
 // 綁定按鈕事件
 document.getElementById('findStopsBtn').addEventListener('click', showNearbyStopsForStartAndEnd);
