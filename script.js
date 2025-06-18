@@ -411,8 +411,8 @@ function updateSelectedPointsUI() {
     const endElem = document.getElementById('selectedEnd');
     const routeBtn = document.getElementById('findStopsBtn');
 
-    startElem.textContent = startPoint ? (startPoint.ScenicSpotName || startPoint.RestaurantName) : '尚未設定';
-    endElem.textContent = endPoint ? (endPoint.ScenicSpotName || endPoint.RestaurantName) : '尚未設定';
+    startElem.textContent = startPoint ? (startPoint.ScenicSpotName || startPoint.RestaurantName|| startPoint.HotelName) : '尚未設定';
+    endElem.textContent = endPoint ? (endPoint.ScenicSpotName || endPoint.RestaurantName)|| startPoint.HotelName : '尚未設定';
 
     routeBtn.disabled = !(startPoint && endPoint);
 }
@@ -614,7 +614,63 @@ async function showNearbyStopsForStartAndEnd() {
 
 // 綁定按鈕事件
 document.getElementById('findStopsBtn').addEventListener('click', showNearbyStopsForStartAndEnd);
+const map = L.map('map').setView([23.5, 121], 8); // 台灣全圖
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap 貢獻者'
+  }).addTo(map);
 
+  function addMarkerToMap(point, label, color = 'blue') {
+    if (!point || !point.Position || !point.Position.PositionLat || !point.Position.PositionLon) return;
+
+    const icon = L.icon({
+      iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+    });
+
+    L.marker([point.Position.PositionLat, point.Position.PositionLon], { icon })
+      .addTo(map)
+      .bindPopup(label);
+  }
+
+  async function showNearbyStopsAndMap() {
+    await showNearbyStopsForStartAndEnd(); // 保留文字資訊
+
+    map.eachLayer(layer => {
+      if (layer instanceof L.Marker) map.removeLayer(layer);
+    });
+
+    const allMarkers = [];
+
+    if (startPoint) {
+      addMarkerToMap(startPoint, '🚩 起點', 'green');
+      allMarkers.push([startPoint.Position.PositionLat, startPoint.Position.PositionLon]);
+    }
+    if (endPoint) {
+      addMarkerToMap(endPoint, '🏁 終點', 'red');
+      allMarkers.push([endPoint.Position.PositionLat, endPoint.Position.PositionLon]);
+    }
+
+    const startStops = await findNearbyBusStops(startPoint.Position.PositionLat, startPoint.Position.PositionLon);
+    const endStops = await findNearbyBusStops(endPoint.Position.PositionLat, endPoint.Position.PositionLon);
+
+    startStops.forEach((stop, i) => {
+      addMarkerToMap({ Position: { PositionLat: stop.StopPosition.PositionLat, PositionLon: stop.StopPosition.PositionLon } }, `🚌 起點附近站牌 ${stop.StopName.Zh_tw}`, 'blue');
+      allMarkers.push([stop.StopPosition.PositionLat, stop.StopPosition.PositionLon]);
+    });
+
+    endStops.forEach((stop, i) => {
+      addMarkerToMap({ Position: { PositionLat: stop.StopPosition.PositionLat, PositionLon: stop.StopPosition.PositionLon } }, `🚌 終點附近站牌 ${stop.StopName.Zh_tw}`, 'orange');
+      allMarkers.push([stop.StopPosition.PositionLat, stop.StopPosition.PositionLon]);
+    });
+
+    if (allMarkers.length > 0) {
+      map.fitBounds(allMarkers);
+    }
+  }
+
+  document.getElementById('findStopsBtn').addEventListener('click', showNearbyStopsAndMap);
 
 
 

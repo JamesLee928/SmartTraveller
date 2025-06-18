@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <title>智慧旅遊平台</title>
     <link rel="stylesheet" href="index.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
     <h1>智慧旅遊推薦平台</h1>
@@ -35,7 +37,6 @@
         <div class="section" id="hotels">🏨 旅宿推薦</div>
         <div class="section" id="spots">📍 景點推薦</div>
         <div class="section" id="foods">🍜 美食推薦</div>
-        <div class="section" id="transport">🚌 交通資訊</div>
     </div>
 
     <!-- 類別篩選區域 - 初始隱藏 -->
@@ -72,15 +73,10 @@
         <!-- 確定行程按鈕 -->
     <button id="confirmRouteBtn">確定行程</button>
 
-    <!-- 顯示公車站牌 -->
-    <h4>起點附近公車站牌</h4>
-    <div id="startBusStopsContainer"></div>
-
-    <h4>終點附近公車站牌</h4>
-    <div id="endBusStopsContainer"></div>
     </div>
    <div id="busStopsInfo" style="margin-top: 20px;"></div>
     <button id="findStopsBtn">查詢附近站牌</button>
+    <div id="map" style="height: 500px; width: 800px;"></div>
 
     <div id="hotelFilterContainer" style="display: none;">
         <h3>旅宿類別篩選</h3>
